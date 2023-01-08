@@ -4,12 +4,27 @@ import styled from 'styled-components';
 import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
 import InfiniteScroll from 'react-infinite-scroll-component';
 
+const TableContainer = styled.div`
+  display: flex;
+  justify-content: center;
+`;
+
+const Avatar = styled.div`
+  text-align: center;
+  border-radius: 100%;
+  text-transform: uppercase;
+  color: rgb(255, 255, 255);
+  background-color: rgb(26, 188, 156);
+  font: 13px / 40px Helvetica, Arial, sans-serif;
+`;
+
 const client = new ApolloClient({
   uri: 'https://api.tezos.domains/graphql',
   cache: new InMemoryCache(),
 });
 
-const getDomains = async (greaterThan, after?: string) => {
+// https://api-schema.tezos.domains/intfilter.doc.html
+const getDomains = async (startDate, endDate, after?: string) => {
   return client.query({
     query: gql`
       query DomainsList(
@@ -51,8 +66,8 @@ const getDomains = async (greaterThan, after?: string) => {
           equalTo: 2,
         },
         expiresAtUtc: {
-          greaterThan: greaterThan, //'2023-01-05T10:00:00.108Z',
-          //lessThan: '2023-01-06T15:00:00.108Z',
+          greaterThan: startDate,
+          lessThan: endDate,
         },
       },
       order: {
@@ -62,20 +77,6 @@ const getDomains = async (greaterThan, after?: string) => {
     },
   });
 };
-
-const TableContainer = styled.div`
-  display: flex;
-  justify-content: center;
-`;
-
-const Avatar = styled.div`
-  text-align: center;
-  border-radius: 100%;
-  text-transform: uppercase;
-  color: rgb(255, 255, 255);
-  background-color: rgb(26, 188, 156);
-  font: 13px / 40px Helvetica, Arial, sans-serif;
-`;
 
 type Domain = {
   name: string;
@@ -94,9 +95,11 @@ const DomainList = () => {
   const [pageInfo, setPageInfo] = useState<Page | null>(null);
 
   const fetchData = useCallback((after?: string) => {
-    console.log('loading....', after)
-    const date = moment().subtract(6, 'days');
-    return getDomains(date, after)
+    console.log('loading....', after);
+    const today = moment().format('YYYY-MM-DD');
+    const startDate = moment(today).subtract(7, 'days');
+    const endDate = moment(today).subtract(5, 'days');
+    return getDomains(startDate, endDate, after)
       .then((result) => {
         if (result && result.data) {
           const domains = result.data.domains.edges.map((i) => {
@@ -193,7 +196,10 @@ const DomainList = () => {
           }
         >
           {domains.map((domain, index) => (
-            <div key={index} className="flex flex-row justify-between items-center w-full p-4">
+            <div
+              key={index}
+              className="flex flex-row justify-between items-center w-full p-4"
+            >
               <div className="flex items-center">
                 <div style={{ width: '40px', height: '40px' }}>
                   <Avatar> {domain.name.substring(0, 2)} </Avatar>
@@ -205,7 +211,12 @@ const DomainList = () => {
                   {domain.name}
                 </a>
               </div>
-              <div>{expiredAt(domain.expires)}</div>
+              <div className="flex items-center">
+                <div>{expiredAt(domain.expires)}</div>
+                <div className="ml-4">
+                  {moment(domain.expires).format('MM/DD/YYYY hh:mm:ss')}
+                </div>
+              </div>
             </div>
           ))}
         </InfiniteScroll>
